@@ -29,6 +29,3 @@ Simple Solitaire logic to automatic play android card game
 
 
 
-
-https://github.com/user-attachments/assets/b94f5241-e459-4b29-8fa3-c3ed7116d0f9
-
