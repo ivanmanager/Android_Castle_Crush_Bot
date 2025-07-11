@@ -23,7 +23,8 @@ class GameUI:
     DecCount = 0
     lib = None
     Screenshot = None
-    AndroidBridgePath = 'D:/platform-tools'
+    current_directory = os.getcwd()
+    AndroidBridgePath = current_directory + '/platform-tools'
     AndroidBridgeLib = AndroidBridgePath + '/android_bridge.dll'
 
     def __init__(self):
@@ -179,8 +180,17 @@ class GameUI:
     #######################################
 
     def UpdateGameState(self):
-        # Render game state
+        cmdstr = 'shell wm size'
+        retB = self.lib.android_bridge_cmd(cmdstr.encode('ASCII'))
+        if retB:
+            print('Image size checking has been done.')
+            logging.info('Image size checking has been done.')
+        else:
+            print('Image size checking has been skipped.')
+            logging.info('Image size checking has been skipped.')
 
+
+        # Render game state
         self.focusOnEmulatorScreen()
 
         ret = self.lib.android_screen_capture()
