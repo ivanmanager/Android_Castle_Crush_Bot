@@ -5,20 +5,10 @@ import keyboard
 
 gl = GameLogic()
 gui = GameUI()
-gui.focusOnEmulatorScreen()
 
 while 1:
-    gui.log_info("Updating Game State")
-
     gui.UpdateGameState()
-    
-    gui.log_info("Calculating Action")
-    next_action = gl.GetNextAction(gui.gs, gui.gv)
-    gui.log_info("Action: " + next_action.name)
-    gui.log_info(next_action.cards)
-    
-    if not gui.ProcessAction(next_action):
-        break
+    time.sleep(0.01)
     
     escape = keyboard.is_pressed("escape")
     if escape == 1:

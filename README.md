@@ -1,6 +1,6 @@
-# Android_Solitaire_Bot
+# Android_Castle_Crush_Bot
 
-An automated bot that plays the Solitaire card game on Android devices using simple game logic and computer vision.
+An automated bot that plays the Castle Crush game on Android devices using simple game logic and computer vision.
 
 ---
 
@@ -36,17 +36,14 @@ An automated bot that plays the Solitaire card game on Android devices using sim
    - Connect your phone to the PC via USB
    - Enable Developer Options and USB Debugging
 
-5. Install the Solitaire game on your phone
-   [Solitaire - Classic Card Games (Google Play Store)](https://play.google.com/store/apps/details?id=com.smilerlee.klondike&hl=en)
+5. Install the Castle Crush game on your phone
+   [Castle Crush Game (Google Play Store)](https://play.google.com/store/apps/details?id=com.tfgco.games.strategy.free.castlecrush&hl=en)
 
 ## Running the Bot
 1. Ensure your Android phone’s screen resolution is 720 x 1600.
-2. Launch the Solitaire app on the phone.
-3. Run the bot by executing:
+2. Run the bot by executing:
    ```bash
    python main.py
-## Demo Video
-https://github.com/user-attachments/assets/31bc60cd-9393-4b89-a5df-42173be71de6
 
 
 
