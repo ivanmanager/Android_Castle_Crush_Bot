@@ -207,7 +207,7 @@ class GameUI:
         DetectYesOkBtn = False
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if area > totalS*0.003 and area < totalS*0.01:
+            if area > totalS*0.002 and area < totalS*0.01:
                 DetectYesOkBtn = True
                 x,y,w,h = cv2.boundingRect(cnt)
                 cmdstr = 'shell input tap ' + str(int(x + w/2 + height/3)) + ' ' + str(int(y + h/2))
