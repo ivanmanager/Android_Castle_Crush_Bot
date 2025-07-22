@@ -9,7 +9,7 @@ An automated bot that plays the Castle Crush game on Android devices using simpl
 - Windows 10  
 - Python 3.13 or later  
 - Android Platform SDK Tools  
-- Android phone with a screen resolution of **720 x 1600**
+- Android phone with any screen resolution
 
 ---
 
@@ -40,8 +40,7 @@ An automated bot that plays the Castle Crush game on Android devices using simpl
    [Castle Crush Game (Google Play Store)](https://play.google.com/store/apps/details?id=com.tfgco.games.strategy.free.castlecrush&hl=en)
 
 ## Running the Bot
-1. Ensure your Android phone’s screen resolution is 720 x 1600.
-2. Run the bot by executing:
+   Run the bot by executing:
    ```bash
    python main.py
 

@@ -13,6 +13,7 @@ import platform
 from  ctypes import *
 from PIL import Image
 import logging
+import random
 
 class GameUI:
     time_delay=0.01
@@ -22,6 +23,9 @@ class GameUI:
     lib = None
     Screenshot = None
     PageState = None
+    Width = 0
+    Height = 0
+    LaneCoef = [0.64, 0.42, 0.24]
 
     current_directory = os.getcwd()
     AndroidBridgePath = current_directory + '/platform-tools'
@@ -58,73 +62,156 @@ class GameUI:
         imgfile = self.AndroidBridgePath + '/screenshot.png'
 
         img = cv2.imread(imgfile)
-            
-        self.Screenshot = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        self.Screenshot = img    
+        ##self.Screenshot = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 
         match self.PageState:
             case 'StartPage':
-                if self.findImgAndClick('battle_btn.png'):
+                if self.findBattleBtnClick():
                     self.PageState = 'BattlePage'
                     print('Click Battle button...')
+                if self.ClickYesOkBtn():
+                    self.PageState = 'BattlePage'
+                    print('Click Yes button...')
+
             case 'BattlePage':
                 cardPath =  os.path.join(os.getcwd(), self.gv.imageFolderName, 'Cards')
                 cardFileNames = os.listdir(cardPath)
-                for cardfilename in cardFileNames:
-                    self.findImgAndDrag(cardfilename, [720, 300], 0.85)
+                #for cardfilename in cardFileNames:
+                #    self.findImgAndDrag(cardfilename, [720, 300], 0.85)
 
-                self.findImgAndClick('battle_btn.png')
-
-
-    def findImgAndDrag(self,imageName, tgtPos, precision = 0.90):
-        cardPath =  os.path.join(os.getcwd(), self.gv.imageFolderName, 'Cards')
-        imfname = cardPath + '\\' + imageName
-        pos = self.imagesearch(imfname, precision)
-        if pos[0] != -1:
-            self.swipe_image(imfname, pos, tgtPos, offset=5)
-            return True
-        return False
+                pts = self.FindCardReady()
+                random_lane = random.randint(1, 3) - 1
+                if pts != []:
+                    LaneY = int(self.LaneCoef[random_lane] * self.Width)
+                    cmdstr = 'shell input swipe ' + str(pts[0][0]) + ' ' + str(pts[0][1]) + ' ' + str(int(self.Height/2)) + ' ' + str(LaneY)
+                    print(cmdstr)
+                    self.lib.android_bridge_cmd(cmdstr.encode('ASCII'))
 
 
-    def findImgAndClick(self,imageName, precision = 0.90):
-        absolute_path = os.path.join(os.getcwd(), self.gv.imageFolderName, imageName)
-        pos = self.imagesearch(absolute_path, precision)
-        if pos[0] != -1:
-            self.click_image(absolute_path, pos, offset=5)
-            return True
-        return False
-
-
-    def click_image(self, image, pos, offset=5):
-        img = cv2.imread(image)    
-        height, width, channels = img.shape
-        cmdstr = 'shell input tap ' + str(pos[0] + int(self.r(width / 2, offset))) + ' ' + str(pos[1] + int(self.r(height / 2, offset)))
-        self.lib.android_bridge_cmd(cmdstr.encode('ASCII'))
-
-        
-    def swipe_image(self, image, pos, tgtPos, offset=5):
-        img = cv2.imread(image)    
-        height, width, channels = img.shape
-        cmdstr = 'shell input swipe ' + str(pos[0] + int(self.r(width / 2, offset))) + ' ' + str(pos[1] + int(self.r(height / 2, offset))) + ' ' + str(tgtPos[0] + offset) + ' ' + str(tgtPos[1] + offset)
-        self.lib.android_bridge_cmd(cmdstr.encode('ASCII'))
-
-
-    def imagesearch(self, image, precision=0.8):
-        im = self.Screenshot
-        img_rgb = np.array(im)
-        img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2GRAY)
-        template = cv2.imread(image, 0)
-        template.shape[::-1]
-
-        res = cv2.matchTemplate(img_gray, template, cv2.TM_CCOEFF_NORMED)
-        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-        print(str(min_val)+','+str(max_val))
-        if max_val < precision:
-            return [-1, -1]
-        return max_loc
-
-    def r(self, num, rand):
-        return num + rand * random.random()
+                self.ClickYesOkBtn()
+                self.findBattleBtnClick()
 
     def log_info(self, str):
         print(str)
         logging.info(str)
+
+    def findBattleBtnClick(self):
+        img = self.Screenshot
+        imdim = img.shape
+        width = imdim[0]
+        height = imdim[1]
+        self.Width = width
+        self.Height = height
+        subimg = img[:,int(height/3):int(2*height/3),:]
+        BlueTextColor = [60, 3, 125]
+        tol = 15
+        blue_thresh = cv2.inRange(subimg, np.array([BlueTextColor[2] - tol, BlueTextColor[1] - tol, BlueTextColor[0] - tol]), np.array([BlueTextColor[2] + tol, BlueTextColor[1] + tol, BlueTextColor[0] + tol]))
+        contours,hirachy = cv2.findContours(blue_thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+
+        count = 0
+        ObjArea = []
+        for cnt in contours:
+            count = count + 1
+            ObjArea.append(cv2.contourArea(cnt))
+
+        maxv = 0
+        if count != 0:
+            maxv = max(ObjArea)
+                
+        if maxv > 7000:
+            max_idx = ObjArea.index(maxv)
+            M = cv2.moments(contours[max_idx])
+            x,y,w,h = cv2.boundingRect(contours[max_idx])
+
+        else:
+            return False
+
+        cropImg = subimg[y:y+h*2,x:x+w,:]
+        WhiteTextColor = [250, 250, 250]
+        white_thresh = 255 - cv2.inRange(subimg, np.array([WhiteTextColor[2] - tol, WhiteTextColor[1] - tol, WhiteTextColor[0] - tol]), np.array([WhiteTextColor[2] + tol, WhiteTextColor[1] + tol, WhiteTextColor[0] + tol]))
+
+        pos = [x+int(w/2)+int(height/3), y+h]
+        cmdstr = 'shell input tap ' + str(pos[0]) + ' ' + str(pos[1])
+        self.lib.android_bridge_cmd(cmdstr.encode('ASCII'))
+
+        return True
+
+    def FindCardReady(self):
+        img = self.Screenshot
+
+        imdim = img.shape
+        width = imdim[0]
+        height = imdim[1]
+        self.Width = width
+        self.Height = height
+        totalS = width * height        
+        subimg = img[int(2*imdim[0]/3):imdim[0],0:int(height*0.9375),:]
+        hsv_img = cv2.cvtColor(subimg, cv2.COLOR_BGR2HSV)
+        h, s, v = cv2.split(hsv_img)
+        ##ret,bw = cv2.threshold(s, 0, 55, cv2.THRESH_BINARY)
+        pts = []
+        
+        mask = cv2.inRange(s, 0, 10)
+        contours,hirachy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        NumOfPreparingCards = 0
+        ylist = []
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area > totalS*0.01 and area < totalS*0.1:
+                NumOfPreparingCards = NumOfPreparingCards + 1
+                x,y,w,h = cv2.boundingRect(cnt)
+                ylist.append(y)
+
+        if NumOfPreparingCards == 0:
+            print('No cards ready.')
+            return []
+        detectArea = subimg[ylist[0]:ylist[0]+int(height*0.03),:,:]
+        DiodColor = [20, 150, 220]
+        tol = 50
+        blue_thresh = cv2.inRange(detectArea, np.array([DiodColor[2] - tol, DiodColor[1] - tol, DiodColor[0] - tol]), np.array([DiodColor[2] + tol, DiodColor[1] + tol, DiodColor[0] + tol]))
+        kernel = np.ones((3,3), np.uint8) 
+        cleaned_image = cv2.morphologyEx(blue_thresh, cv2.MORPH_OPEN, kernel)
+
+        kernelSize = int(height * 0.02)
+        kernel = np.ones((kernelSize,kernelSize), np.uint8)
+        dilated_image = cv2.dilate(cleaned_image, kernel, iterations=1)
+        
+        contours,hirachy = cv2.findContours(dilated_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        NumOfAvailableCards = len(contours)
+
+        for cnt in contours:
+            x,y,w,h = cv2.boundingRect(cnt)
+            pt = [x + w, y + ylist[0] + h + int(2*imdim[0]/3)]
+            pts.append(pt)
+            ##cv2.rectangle(subimg, (x,y+ylist[0]),(x+w, y+ylist[0]+h), (0,255,0), 3)
+            
+        print('Preparing Cards Number = ' + str(NumOfPreparingCards))
+        print('Available Cards Number = ' + str(NumOfAvailableCards))
+        return pts
+
+
+    def ClickYesOkBtn(self):
+        img = self.Screenshot
+        imdim = img.shape
+        width = imdim[0]
+        height = imdim[1]
+        self.Width = width
+        self.Height = height
+        totalS = width * height
+        subimg = img[:,int(height/3):int(2*height/3),:]
+        tol = 20
+        GreenColor = [0, 150, 50]
+        green_thresh = cv2.inRange(subimg, np.array([GreenColor[2] - tol, GreenColor[1] - tol, GreenColor[0] - tol]), np.array([GreenColor[2] + tol, GreenColor[1] + tol, GreenColor[0] + tol]))
+        contours,hirachy = cv2.findContours(green_thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        DetectYesOkBtn = False
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area > totalS*0.003 and area < totalS*0.01:
+                DetectYesOkBtn = True
+                x,y,w,h = cv2.boundingRect(cnt)
+                cmdstr = 'shell input tap ' + str(int(x + w/2 + height/3)) + ' ' + str(int(y + h/2))
+                self.lib.android_bridge_cmd(cmdstr.encode('ASCII'))
+                break
+                
+        return DetectYesOkBtn
