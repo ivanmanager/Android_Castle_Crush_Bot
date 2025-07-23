@@ -10,6 +10,7 @@ from game_vals import GameVals
 import cv2
 import numpy as np
 import platform
+import ctypes
 from  ctypes import *
 from PIL import Image
 import logging
@@ -54,14 +55,7 @@ class GameUI:
 
     def UpdateGameState(self):
 
-        ret = self.lib.android_screen_capture()
-        if not ret:
-            print('Cannot capture screenshot of the phone.')
-            logging.error('Cannot capture screenshot of the phone.')
-
-        imgfile = self.AndroidBridgePath + '/screenshot.png'
-
-        img = cv2.imread(imgfile)
+        img = self.ScreenCapture()
         self.Screenshot = img    
         ##self.Screenshot = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 
@@ -215,3 +209,14 @@ class GameUI:
                 break
                 
         return DetectYesOkBtn
+
+    def ScreenCapture(self):
+        self.lib.android_screen_capture.restype = ctypes.POINTER(ctypes.c_ubyte)
+        self.lib.android_screen_capture.argtypes = [ctypes.POINTER(ctypes.c_int)]
+
+        buffer_size = ctypes.c_int(0)
+        buf = self.lib.android_screen_capture(ctypes.byref(buffer_size))
+        image_data = ctypes.string_at(buf, buffer_size.value)
+        nparr = np.frombuffer(image_data, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        return image
