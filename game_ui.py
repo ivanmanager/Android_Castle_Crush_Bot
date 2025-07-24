@@ -27,10 +27,12 @@ class GameUI:
     Width = 0
     Height = 0
     LaneCoef = [0.64, 0.42, 0.24]
+    CardRegionDetected = False
 
     current_directory = os.getcwd()
     AndroidBridgePath = current_directory + '/platform-tools'
     AndroidBridgeLib = AndroidBridgePath + '/android_bridge.dll'
+    DetectY = 0
 
     def __init__(self):
         logfilename = 'castle_crush_bot_log.txt'
@@ -141,47 +143,54 @@ class GameUI:
         self.Height = height
         totalS = width * height        
         subimg = img[int(2*imdim[0]/3):imdim[0],0:int(height*0.9375),:]
-        hsv_img = cv2.cvtColor(subimg, cv2.COLOR_BGR2HSV)
-        h, s, v = cv2.split(hsv_img)
-        ##ret,bw = cv2.threshold(s, 0, 55, cv2.THRESH_BINARY)
+
         pts = []
-        
-        mask = cv2.inRange(s, 0, 10)
-        contours,hirachy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-        NumOfPreparingCards = 0
-        ylist = []
-        for cnt in contours:
-            area = cv2.contourArea(cnt)
-            if area > totalS*0.01 and area < totalS*0.1:
-                NumOfPreparingCards = NumOfPreparingCards + 1
-                x,y,w,h = cv2.boundingRect(cnt)
-                ylist.append(y)
+        if not self.CardRegionDetected:
+            hsv_img = cv2.cvtColor(subimg, cv2.COLOR_BGR2HSV)
+            h, s, v = cv2.split(hsv_img)
+            ##ret,bw = cv2.threshold(s, 0, 55, cv2.THRESH_BINARY)
 
-        if NumOfPreparingCards == 0:
-            print('No cards ready.')
-            return []
-        detectArea = subimg[ylist[0]:ylist[0]+int(height*0.03),:,:]
-        DiodColor = [20, 150, 220]
-        tol = 50
-        blue_thresh = cv2.inRange(detectArea, np.array([DiodColor[2] - tol, DiodColor[1] - tol, DiodColor[0] - tol]), np.array([DiodColor[2] + tol, DiodColor[1] + tol, DiodColor[0] + tol]))
-        kernel = np.ones((3,3), np.uint8) 
-        cleaned_image = cv2.morphologyEx(blue_thresh, cv2.MORPH_OPEN, kernel)
-
-        kernelSize = int(height * 0.02)
-        kernel = np.ones((kernelSize,kernelSize), np.uint8)
-        dilated_image = cv2.dilate(cleaned_image, kernel, iterations=1)
-        
-        contours,hirachy = cv2.findContours(dilated_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-        NumOfAvailableCards = len(contours)
-
-        for cnt in contours:
-            x,y,w,h = cv2.boundingRect(cnt)
-            pt = [x + w, y + ylist[0] + h + int(2*imdim[0]/3)]
-            pts.append(pt)
-            ##cv2.rectangle(subimg, (x,y+ylist[0]),(x+w, y+ylist[0]+h), (0,255,0), 3)
             
-        print('Preparing Cards Number = ' + str(NumOfPreparingCards))
-        print('Available Cards Number = ' + str(NumOfAvailableCards))
+            mask = cv2.inRange(s, 0, 10)
+            contours,hirachy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+            NumOfPreparingCards = 0
+            ylist = []
+            for cnt in contours:
+                area = cv2.contourArea(cnt)
+                if area > totalS*0.01 and area < totalS*0.1:
+                    NumOfPreparingCards = NumOfPreparingCards + 1
+                    x,y,w,h = cv2.boundingRect(cnt)
+                    ylist.append(y)
+
+            if NumOfPreparingCards == 0:
+                print('No cards ready.')
+                ylist.append(self.DetectY)
+            else:
+                self.DetectY = ylist[0]
+                self.CardRegionDetected = True
+            
+        if self.DetectY > 0:
+            detectArea = subimg[self.DetectY:self.DetectY+int(height*0.03),:,:]
+            DiodColor = [20, 150, 220]
+            tol = 50
+            blue_thresh = cv2.inRange(detectArea, np.array([DiodColor[2] - tol, DiodColor[1] - tol, DiodColor[0] - tol]), np.array([DiodColor[2] + tol, DiodColor[1] + tol, DiodColor[0] + tol]))
+            kernel = np.ones((3,3), np.uint8) 
+            cleaned_image = cv2.morphologyEx(blue_thresh, cv2.MORPH_OPEN, kernel)
+
+            kernelSize = int(height * 0.02)
+            kernel = np.ones((kernelSize,kernelSize), np.uint8)
+            dilated_image = cv2.dilate(cleaned_image, kernel, iterations=1)
+            
+            contours,hirachy = cv2.findContours(dilated_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+            NumOfAvailableCards = len(contours)
+
+            for cnt in contours:
+                x,y,w,h = cv2.boundingRect(cnt)
+                pt = [x + w, y + self.DetectY + h + int(2*imdim[0]/3)]
+                pts.append(pt)
+                ##cv2.rectangle(subimg, (x,y+ylist[0]),(x+w, y+ylist[0]+h), (0,255,0), 3)
+                
+            print('Available Cards Number = ' + str(NumOfAvailableCards))
         return pts
 
 
