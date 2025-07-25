@@ -33,6 +33,12 @@ class GameUI:
     AndroidBridgePath = current_directory + '/platform-tools'
     AndroidBridgeLib = AndroidBridgePath + '/android_bridge.dll'
     DetectY = 0
+    card_width = 0
+    card_height = 0
+    sift = cv2.SIFT_create()
+    kp1 = None
+    des1 = None
+    CardMgr = Card()
 
     def __init__(self):
         logfilename = 'castle_crush_bot_log.txt'
@@ -46,6 +52,10 @@ class GameUI:
             logging.error('No devices connected.')
             exit(0)
         
+        card1Path = self.current_directory + '\\MobileImages\\Cards\\cards.png'
+        img1 = cv2.imread(card1Path)
+        self.kp1, self.des1 = self.sift.detectAndCompute(img1,None)
+
         cmdstr = ' shell monkey -p com.tfgco.games.strategy.free.castlecrush -c android.intent.category.LAUNCHER 1'
         self.lib.android_bridge_cmd(cmdstr.encode('ASCII'))
         self.PageState = 'StartPage'
@@ -145,6 +155,7 @@ class GameUI:
         subimg = img[int(2*imdim[0]/3):imdim[0],0:int(height*0.9375),:]
 
         pts = []
+        templates = []
         if not self.CardRegionDetected:
             hsv_img = cv2.cvtColor(subimg, cv2.COLOR_BGR2HSV)
             h, s, v = cv2.split(hsv_img)
@@ -160,6 +171,8 @@ class GameUI:
                 if area > totalS*0.01 and area < totalS*0.1:
                     NumOfPreparingCards = NumOfPreparingCards + 1
                     x,y,w,h = cv2.boundingRect(cnt)
+                    self.card_width = w
+                    self.card_height = h
                     ylist.append(y)
 
             if NumOfPreparingCards == 0:
@@ -170,6 +183,7 @@ class GameUI:
                 self.CardRegionDetected = True
             
         if self.DetectY > 0:
+
             detectArea = subimg[self.DetectY:self.DetectY+int(height*0.03),:,:]
             DiodColor = [20, 150, 220]
             tol = 50
@@ -183,14 +197,39 @@ class GameUI:
             
             contours,hirachy = cv2.findContours(dilated_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
             NumOfAvailableCards = len(contours)
+            print('Available Cards Number = ' + str(NumOfAvailableCards))
 
             for cnt in contours:
                 x,y,w,h = cv2.boundingRect(cnt)
                 pt = [x + w, y + self.DetectY + h + int(2*imdim[0]/3)]
                 pts.append(pt)
-                ##cv2.rectangle(subimg, (x,y+ylist[0]),(x+w, y+ylist[0]+h), (0,255,0), 3)
-                
-            print('Available Cards Number = ' + str(NumOfAvailableCards))
+                cornerPt = [x + int(w/3), y + self.DetectY + int(2*imdim[0]/3)]
+                cornerPt1 = [cornerPt[0] + self.card_width, cornerPt[1] + self.card_height]
+                tgt_img = img[cornerPt[1]:cornerPt1[1],cornerPt[0]:cornerPt1[0],:]
+                templates.append(tgt_img)
+
+            for tmt in templates:
+                kp2, des2 = self.sift.detectAndCompute(tmt,None)
+                bf = cv2.BFMatcher()
+                matches = bf.knnMatch(self.des1,des2,k=2)
+                good = []
+                xpoints = []
+                ypoints = []
+                for m,n in matches:
+                    if m.distance < 0.25*n.distance:
+                        good.append([m])
+                        pt1 = self.kp1[m.queryIdx].pt
+                        xpoints.append(pt1[0])
+                        ypoints.append(pt1[1])
+
+                if xpoints == [] or ypoints == []:
+                    print('No matching objects.')
+                else:
+                    xx = int(np.median(xpoints))
+                    yy = int(np.median(ypoints))
+                    card = self.CardMgr.GetCard1(xx, yy)
+                    print(card['name'])
+            
         return pts
 
 
